@@ -17,7 +17,7 @@ if [ ! -f $APP_HOME/google/client_secret.json ]; then
 fi
 
 # generate RSA key pairs
-[ -d $APP_HOME/rsa-key-pairs/ ] ||
+[ -f $APP_HOME/rsa-key-pairs.tgz ] ||
 (
 echo -n "How many key pairs do you want to generate? [default: 10] "
 read num
@@ -40,6 +40,11 @@ read i
 	keyhome=$APP_HOME/rsa-key-pairs/$i
 	openssl genrsa -aes256 -out $keyhome/$i.pem 4096
 	openssl rsa -in $keyhome/$i.pem -pubout -out $keyhome/$i.pub
+
+cd $APP_HOME
+tar -czf rsa-key-pairs.tgz rsa-key-pairs
+cd -
 )
 
 # init google drive
+mvn -f $APP_HOME/src/google-drive-adaptor/pom.xml exec:java -Dexec.mainClass=tw.jim.cipherbox.InitGoogleDriveSecureStore
