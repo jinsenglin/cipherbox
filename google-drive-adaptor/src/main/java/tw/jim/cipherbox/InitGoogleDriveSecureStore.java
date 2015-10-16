@@ -102,90 +102,49 @@ public class InitGoogleDriveSecureStore {
         // Build a new authorized API client service.
         Drive service = getDriveService();
         
-        // listFolder(service);
-        // createFolder(service); // ID: 0ByMlSqqcEbhXZDluZXZlTHRJNEE
-        // uploadFile(service);
-        // uploadFile(service, "0ByMlSqqcEbhXZDluZXZlTHRJNEE"); // ID: 0ByMlSqqcEbhXQkxSaWNwNDNYQm8
-        // downloadFile(service, "0ByMlSqqcEbhXQkxSaWNwNDNYQm8");
+        // create a folder named “cipherbox” on Google Drive
+        File root = createFolder(service, "cipherbox");
+        
+        // create a folder named “ciphertext-files” on Google Drive, under the folder “cipherbox”
+        File ciphertext_files_dir = createFolder(service, "ciphertext-files", root.getId());
+        
+        // upload file ~/.cipherbox/rsa-key-pairs.tgz to Google Drive, under the folder “cipherbox”
+        File rsa_key_pairs_tgz = uploadFile(service, "rsa-key-pairs.tgz", "application/x-gzip", System.getProperty("user.home") + "/.cipherbox/rsa-key-pairs.tgz", root.getId());
+        
+        // serialize “‘metatdata’ object” and save it to file ~/.cipherbox/metadata
+        // upload file ~/.cipherbox/metadata to Google Drive, under the folder “cipherbox”
     }
     
-    public static void listFolder(Drive service) throws IOException {
-    	// Print the names and IDs for up to 10 files.
-        FileList result = service.files().list()
-             .setMaxResults(10)
-             .execute();
-        List<File> files = result.getItems();
-        if (files == null || files.size() == 0) {
-            System.out.println("No files found.");
-        } else {
-            System.out.println("Files:");
-            for (File file : files) {
-                System.out.printf("%s (%s)\n", file.getTitle(), file.getId());
-            }
-        }
-    }
-    public static void createFolder(Drive service) throws IOException {
+    public static File createFolder(Drive service, String title) throws IOException {
     	File body = new File();
-    	body.setTitle("secure store");
+    	body.setTitle(title);
     	body.setMimeType("application/vnd.google-apps.folder");
     	File file = service.files().insert(body).execute();
-    	System.out.println("Folder 'secure store' created.");
+    	System.out.println("Folder '" + title + "' created.");
     	System.out.printf("%s (%s)\n", file.getTitle(), file.getId());
+    	return file;
     }
-    public static void uploadFile(Drive service) throws IOException {
+    public static File createFolder(Drive service, String title, String parentID) throws IOException {
     	File body = new File();
-    	body.setTitle("title");
-    	body.setMimeType("application/xml");
-    	java.io.File fileContent = new java.io.File("/Users/cclin/Downloads/curl-drive/pom.xml");
-    	FileContent mediaContent = new FileContent("application/xml", fileContent);
-    	File file = service.files().insert(body, mediaContent).execute();
-    	System.out.println("File '/Users/cclin/Downloads/curl-drive/pom.xml' uploaded.");
-    	System.out.printf("%s (%s)\n", file.getTitle(), file.getId());
-    }
-    public static void uploadFile(Drive service, String parentID) throws IOException {
-    	File body = new File();
-    	body.setTitle("title");
-    	body.setMimeType("application/xml");
+    	body.setTitle(title);
+    	body.setMimeType("application/vnd.google-apps.folder");
     	body.setParents(Arrays.asList(new ParentReference().setId(parentID)));
-    	java.io.File fileContent = new java.io.File("/Users/cclin/Downloads/curl-drive/pom.xml");
-    	FileContent mediaContent = new FileContent("application/xml", fileContent);
-    	File file = service.files().insert(body, mediaContent).execute();
-    	System.out.println("File '/Users/cclin/Downloads/curl-drive/pom.xml' uploaded.");
+    	File file = service.files().insert(body).execute();
+    	System.out.println("Folder '" + title + "' created.");
     	System.out.printf("%s (%s)\n", file.getTitle(), file.getId());
+    	return file;
     }
-    public static void downloadFile(Drive service, String fileID) throws IOException {
-    	InputStream is = service.files().get(fileID).executeMediaAsInputStream();
-    	String result = getStringFromInputStream(is);
-    	System.out.println(result);
+    public static File uploadFile(Drive service, String title, String mimeType, String path, String parentID) throws IOException {
+    	File body = new File();
+    	body.setTitle(title);
+    	body.setMimeType(mimeType);
+    	body.setParents(Arrays.asList(new ParentReference().setId(parentID)));
+    	java.io.File fileContent = new java.io.File(path);
+    	FileContent mediaContent = new FileContent(mimeType, fileContent);
+    	File file = service.files().insert(body, mediaContent).execute();
+    	System.out.println("File '" + path + "' uploaded.");
+    	System.out.printf("%s (%s)\n", file.getTitle(), file.getId());
+    	return file;
     }
- // convert InputStream to String
- 	private static String getStringFromInputStream(InputStream is) {
-
- 		BufferedReader br = null;
- 		StringBuilder sb = new StringBuilder();
-
- 		String line;
- 		try {
-
- 			br = new BufferedReader(new InputStreamReader(is));
- 			while ((line = br.readLine()) != null) {
- 				sb.append(line);
- 			}
-
- 		} catch (IOException e) {
- 			e.printStackTrace();
- 		} finally {
- 			if (br != null) {
- 				try {
- 					br.close();
- 				} catch (IOException e) {
- 					e.printStackTrace();
- 				}
- 			}
- 		}
-
- 		return sb.toString();
-
- 	}
 }
 
