@@ -17,7 +17,11 @@ if [ ! -f $APP_HOME/google/client_secret.json ]; then
 fi
 
 # download RSA key pairs and metadata from Google Drive
-[ -f $APP_HOME/rsa-key-pairs.tgz ] ||
+[ -d $APP_HOME/rsa-key-pairs ] ||
 (
 mvn -f $APP_HOME/src/google-drive-adaptor/pom.xml exec:java -Dexec.mainClass=tw.jim.cipherbox.RebuildApplicationHome
+
+cd $APP_HOME
+tar -zxf rsa-key-pairs.tgz
+cd -
 )
