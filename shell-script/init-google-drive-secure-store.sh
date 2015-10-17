@@ -12,7 +12,7 @@ APP_HOME=$HOME/.cipherbox
 # put the client_secret.json file downloaded from Google Developer Console to local application home
 mkdir -p $APP_HOME/google
 if [ ! -f $APP_HOME/google/client_secret.json ]; then
-	echo Please download your client_secrets.json file from Google Developer Console, save it as $APP_HOME/google/client_secrets.json, and then run this script again.
+	echo Please download your client_secret.json file from Google Developer Console, save it as $APP_HOME/google/client_secret.json, and then run this script again.
 	exit 1
 fi
 
