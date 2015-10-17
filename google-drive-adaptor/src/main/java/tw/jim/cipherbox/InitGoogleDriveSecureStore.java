@@ -1,5 +1,14 @@
 package tw.jim.cipherbox;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.ObjectOutputStream;
+import java.util.Arrays;
+import java.util.List;
+
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
@@ -15,13 +24,7 @@ import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.*;
 import com.google.api.services.drive.Drive;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.List;
+import tw.jim.cipherbox.model.MetaData;;
 
 public class InitGoogleDriveSecureStore {
     /** Application name. */
@@ -112,7 +115,17 @@ public class InitGoogleDriveSecureStore {
         File rsa_key_pairs_tgz = uploadFile(service, "rsa-key-pairs.tgz", "application/x-gzip", System.getProperty("user.home") + "/.cipherbox/rsa-key-pairs.tgz", root.getId());
         
         // serialize “‘metatdata’ object” and save it to file ~/.cipherbox/metadata
+        MetaData metadata_obj = new MetaData();
+        metadata_obj.ciphertext_files_folder_id = ciphertext_files_dir.getId();
+        FileOutputStream fileOut = new FileOutputStream(System.getProperty("user.home") + "/.cipherbox/metadata");
+        ObjectOutputStream out = new ObjectOutputStream(fileOut);
+        out.writeObject(metadata_obj);
+        out.close();
+        fileOut.close();
+        System.out.println("Serialized data is saved in " + System.getProperty("user.home") + "/.cipherbox/metadata");
+        
         // upload file ~/.cipherbox/metadata to Google Drive, under the folder “cipherbox”
+        File metadata_file = uploadFile(service, "metadata", "application/x-java-serialized-object ", System.getProperty("user.home") + "/.cipherbox/metadata", root.getId());
     }
     
     public static File createFolder(Drive service, String title) throws IOException {
