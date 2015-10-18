@@ -1,1 +1,19 @@
 #!/bin/bash -ex
+
+# define local application home path
+APP_HOME=$HOME/.cipherbox
+
+# prompt “input ciphertext file name”
+echo -n "input ciphertext file name: "
+read file
+
+# call Google Drive Java Client “RestoreConfidentialsFromGoogleDrive” with argument “ciphertext file name”
+mvn -f $APP_HOME/src/google-drive-adaptor/pom.xml exec:java -Dexec.mainClass=tw.jim.cipherbox.RestoreConfidentialsFromGoogleDrive -Dexec.args="$file"
+
+# prompt “input key name”
+echo -n "input key name: "
+read key
+
+# use openssl to decrypt the ciphertext file
+cat $HOME/.cipherbox/$file.tmp | openssl rsautl -decrypt -inkey $APP_HOME/rsa-key-pairs/$key/$key.pem > $file
+rm $HOME/.cipherbox/$file.tmp
