@@ -7,7 +7,7 @@ APP_HOME=$HOME/.cipherbox
 [ -d $APP_HOME/src ] || git clone https://github.com/jinsenglin/cipherbox.git $APP_HOME/src
 
 # build soure code
-[ -d $APP_HOME/src/google-drive-adaptor/target ] || mvn package -f $APP_HOME/src/google-drive-adaptor
+[ -d $APP_HOME/src/google-drive-adaptor/target ] || mvn package -f $APP_HOME/src/google-drive-adaptor/pom.xml
 
 # put the client_secret.json file downloaded from Google Developer Console to local application home
 mkdir -p $APP_HOME/google
