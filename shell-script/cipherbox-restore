@@ -8,7 +8,7 @@ echo -n "input ciphertext file name: "
 read file
 
 # call Google Drive Java Client “RestoreConfidentialsFromGoogleDrive” with argument “ciphertext file name”
-mvn -f $APP_HOME/src/google-drive-adaptor/pom.xml exec:java -Dexec.mainClass=tw.jim.cipherbox.RestoreConfidentialsFromGoogleDrive -Dexec.args="$file"
+mvn -q -f $APP_HOME/src/google-drive-adaptor/pom.xml exec:java -Dexec.mainClass=tw.jim.cipherbox.RestoreConfidentialsFromGoogleDrive -Dexec.args="$file"
 
 # prompt “input key name”
 echo -n "input key name: "

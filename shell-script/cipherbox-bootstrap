@@ -47,4 +47,4 @@ cd -
 )
 
 # init google drive
-mvn -f $APP_HOME/src/google-drive-adaptor/pom.xml exec:java -Dexec.mainClass=tw.jim.cipherbox.InitGoogleDriveSecureStore
+mvn -q -f $APP_HOME/src/google-drive-adaptor/pom.xml exec:java -Dexec.mainClass=tw.jim.cipherbox.InitGoogleDriveSecureStore

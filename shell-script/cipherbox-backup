@@ -16,7 +16,7 @@ read key
 cat $file | openssl rsautl -encrypt  -pubin -inkey $APP_HOME/rsa-key-pairs/$key/$key.pub > $APP_HOME/$(basename $file).tmp
 
 # call Google Drive Java Client “BackupConfidentialsToGoogleDrive” with argument “plaintext file name”
-mvn -f $APP_HOME/src/google-drive-adaptor/pom.xml exec:java -Dexec.mainClass=tw.jim.cipherbox.BackupConfidentialsToGoogleDrive -Dexec.args="$(basename $file)"
+mvn -q -f $APP_HOME/src/google-drive-adaptor/pom.xml exec:java -Dexec.mainClass=tw.jim.cipherbox.BackupConfidentialsToGoogleDrive -Dexec.args="$(basename $file)"
 
 # rm ~/.cipherbox/[plaintext file name].tmp
 rm $APP_HOME/$(basename $file).tmp
