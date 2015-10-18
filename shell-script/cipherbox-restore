@@ -12,7 +12,7 @@ mvn -q -f $APP_HOME/src/google-drive-adaptor/pom.xml exec:java -Dexec.mainClass=
 
 # prompt “input key name”
 echo -n "input key name: "
-read key
+read -s key
 
 # use openssl to decrypt the ciphertext file
 cat $HOME/.cipherbox/$file.tmp | openssl rsautl -decrypt -inkey $APP_HOME/rsa-key-pairs/$key/$key.pem > $file

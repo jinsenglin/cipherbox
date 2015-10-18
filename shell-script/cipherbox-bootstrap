@@ -34,7 +34,7 @@ do
 done
 
 echo -n "Select the key pair from 1 to $num? [default: 1] "
-read i
+read -s i
 [ -z $i ] && i=1
 
 	keyhome=$APP_HOME/rsa-key-pairs/$i

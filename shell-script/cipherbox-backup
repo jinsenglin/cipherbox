@@ -9,7 +9,7 @@ read file
 
 # prompt “input key name”
 echo -n "input key name: "
-read key
+read -s key
 
 # use openssl to encrypt the plaintext file
 # save the ciphertext file to ~/.cipherbox/[plaintext file name].tmp
