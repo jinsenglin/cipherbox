@@ -5,7 +5,7 @@ APP_HOME=$HOME/.cipherbox
 
 # prompt “input plaintext file path”
 echo -n "input plaintext file path: "
-read file
+read -e file
 
 # prompt “input key name”
 echo -n "input key name: "
