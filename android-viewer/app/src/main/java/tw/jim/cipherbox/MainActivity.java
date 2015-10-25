@@ -16,6 +16,8 @@ import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 import com.google.android.gms.drive.Drive;
 
+import java.io.File;
+
 public class MainActivity extends AppCompatActivity implements ConnectionCallbacks,
         OnConnectionFailedListener {
 
@@ -28,6 +30,23 @@ public class MainActivity extends AppCompatActivity implements ConnectionCallbac
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        // Create application home ".cipherbox" if doesn't exist, using internal storage
+        File file = new File(this.getApplicationContext().getFilesDir(), ".cipherbox");
+        if (file.exists()) {
+            Log.i(TAG, "Application home .cipherbox exists.");
+        }
+        else {
+            Log.i(TAG, "Application home .cipherbox does not exist.");
+
+            Log.i(TAG, "Trying to create application home .cipherbox ...");
+            if (file.mkdir()) {
+                Log.i(TAG, "Application home .cipherbox is created.");
+            }
+            else {
+                Log.i(TAG, "Application home .cipherbox can not be created.");
+            }
+        }
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
