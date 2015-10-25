@@ -4,12 +4,23 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 
-public class MainActivity extends AppCompatActivity {
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
+import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
+import com.google.android.gms.drive.Drive;
+
+public class MainActivity extends AppCompatActivity implements ConnectionCallbacks,
+        OnConnectionFailedListener {
+
+    private static final String TAG = "cipherbox";
+    private GoogleApiClient mGoogleApiClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,8 +37,10 @@ public class MainActivity extends AppCompatActivity {
                 Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                         .setAction("Action", null).show();*/
 
+                // Decrypt cipher text and then display plain text
                 TextView plaintext = (TextView) findViewById(R.id.textView4);
                 plaintext.setText("This is hello.");
+
             }
         });
     }
@@ -52,5 +65,48 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mGoogleApiClient == null) {
+            // Create the API client and bind it to an instance variable.
+            // We use this instance as the callback for connection and connection
+            // failures.
+            // Since no account name is passed, the user is prompted to choose.
+            mGoogleApiClient = new GoogleApiClient.Builder(this)
+                    .addApi(Drive.API)
+                    .addScope(Drive.SCOPE_FILE)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .build();
+        }
+        // Connect the client. Once connected, the camera is launched.
+        mGoogleApiClient.connect();
+    }
+
+    @Override
+    protected void onPause() {
+        if (mGoogleApiClient != null) {
+            mGoogleApiClient.disconnect();
+        }
+        super.onPause();
+    }
+
+    @Override
+    public void onConnected(Bundle bundle) {
+        Log.i(TAG, "API client connected.");
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+        Log.i(TAG, "GoogleApiClient connection suspended");
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult connectionResult) {
+        // Called whenever the API client fails to connect.
+        Log.i(TAG, "GoogleApiClient connection failed: " + connectionResult.toString());
     }
 }
