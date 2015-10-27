@@ -1,45 +1,135 @@
 package tw.jim.cipherbox;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
-import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ListView;
 import android.widget.TextView;
 
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
-import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.drive.Drive;
 import com.google.android.gms.drive.DriveApi;
+import com.google.android.gms.drive.DriveApi.DriveContentsResult;
+import com.google.android.gms.drive.DriveApi.DriveIdResult;
+import com.google.android.gms.drive.DriveContents;
+import com.google.android.gms.drive.DriveFile;
+import com.google.android.gms.drive.DriveId;
 import com.google.android.gms.drive.query.Filters;
 import com.google.android.gms.drive.query.Query;
 import com.google.android.gms.drive.query.SearchableField;
+import com.google.android.gms.drive.sample.demo.ApiClientAsyncTask;
+import com.google.android.gms.drive.sample.demo.BaseDemoActivity;
+import com.google.android.gms.drive.sample.demo.ResultsAdapter;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
-public class MainActivity extends AppCompatActivity implements ConnectionCallbacks,
-        OnConnectionFailedListener {
+import tw.jim.cipherbox.model.MetaData;
+
+public class MainActivity extends BaseDemoActivity {
 
     private static final String TAG = "cipherbox";
-    private GoogleApiClient mGoogleApiClient;
+
+    private ListView mResultsListView;
+    private ResultsAdapter mResultsAdapter;
 
     final private ResultCallback<DriveApi.MetadataBufferResult> metadataCallback =
             new ResultCallback<DriveApi.MetadataBufferResult>() {
                 @Override
                 public void onResult(DriveApi.MetadataBufferResult result) {
                     if (!result.getStatus().isSuccess()) {
-                        Log.i(TAG, "Problem while retrieving results.");
+                        showMessage("Problem while retrieving results");
                         return;
                     }
-                    Log.i(TAG, "result: " + result.getMetadataBuffer().get(0).getTitle());
+                    mResultsAdapter.clear();
+                    mResultsAdapter.append(result.getMetadataBuffer());
+
+                    //
+                    new RetrieveDriveFileContentsAsyncTask(MainActivity.this).execute(result.getMetadataBuffer().get(0).getDriveId());
+
                 }
             };
+
+    final private ResultCallback<DriveIdResult> idCallback = new ResultCallback<DriveIdResult>() {
+        @Override
+        public void onResult(DriveIdResult result) {
+            new RetrieveDriveFileContentsAsyncTask(MainActivity.this).execute(result.getDriveId());
+        }
+    };
+
+    final private class RetrieveDriveFileContentsAsyncTask
+            extends ApiClientAsyncTask<DriveId, Boolean, String> {
+
+        public RetrieveDriveFileContentsAsyncTask(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected String doInBackgroundConnected(DriveId... params) {
+            String contents = null;
+            DriveFile file = params[0].asDriveFile();
+            DriveContentsResult driveContentsResult =
+                    file.open(getGoogleApiClient(), DriveFile.MODE_READ_ONLY, null).await();
+            if (!driveContentsResult.getStatus().isSuccess()) {
+                return null;
+            }
+            DriveContents driveContents = driveContentsResult.getDriveContents();
+
+            //
+            try {
+                Log.i(TAG, "Deserializing metadata from the stream");
+                ObjectInputStream in = new ObjectInputStream(driveContents.getInputStream());
+                MetaData metadata_obj = (MetaData) in.readObject();
+
+                Log.i(TAG, "Saving metadata from the stream");
+                FileOutputStream fos = openFileOutput("metadata", Context.MODE_PRIVATE);
+                ObjectOutputStream out = new ObjectOutputStream(fos);
+                out.writeObject(metadata_obj);
+                out.close();
+                fos.close();
+
+            } catch (IOException e) {
+                Log.e(TAG, "IOException while deserializing metadata from the stream", e);
+            } catch (ClassNotFoundException e) {
+                Log.e(TAG, "ClassNotFoundException while deserializing metadata from the stream", e);
+            }
+
+            /*
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(driveContents.getInputStream()));
+            StringBuilder builder = new StringBuilder();
+            String line;
+            try {
+                while ((line = reader.readLine()) != null) {
+                    builder.append(line);
+                }
+                contents = builder.toString();
+            } catch (IOException e) {
+                Log.e(TAG, "IOException while reading from the stream", e);
+            }*/
+
+            driveContents.discard(getGoogleApiClient());
+            return contents;
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            super.onPostExecute(result);
+            if (result == null) {
+                showMessage("Error while reading from the file");
+                return;
+            }
+            showMessage("File contents: " + result);
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,21 +138,25 @@ public class MainActivity extends AppCompatActivity implements ConnectionCallbac
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        // Create application home ".cipherbox" if doesn't exist, using internal storage
-        File apphome = new File(this.getApplicationContext().getFilesDir(), ".cipherbox");
-        if (apphome.exists()) {
-            Log.i(TAG, "Application home .cipherbox exists.");
-        }
-        else {
-            Log.i(TAG, "Application home .cipherbox does not exist.");
+        //
+        mResultsListView = (ListView) findViewById(R.id.listView);
+        mResultsAdapter = new ResultsAdapter(this);
+        mResultsListView.setAdapter(mResultsAdapter);
 
-            Log.i(TAG, "Trying to create application home .cipherbox ...");
-            if (apphome.mkdir()) {
-                Log.i(TAG, "Application home .cipherbox is created.");
-            }
-            else {
-                Log.i(TAG, "Application home .cipherbox can not be created.");
-            }
+        // Using internal storage as local application home
+
+        //
+        File metadata_file = new File(this.getFilesDir(), "metadata");
+        if ( ! metadata_file.exists() ) {
+            // Download metadata file from Google Drive
+            Log.i(TAG, "Downloading metadata file from Google Drive");
+        }
+
+        //
+        File rsa_key_pairs_tgz_file = new File(this.getFilesDir(), "rsa-key-pairs.tgz");
+        if ( ! rsa_key_pairs_tgz_file.exists() ) {
+            // Download rsa-key-pairs.tgz file from Google Drive
+            Log.i(TAG, "Downloading rsa-key-pairs.tgz file from Google Drive");
         }
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -105,84 +199,29 @@ public class MainActivity extends AppCompatActivity implements ConnectionCallbac
         return super.onOptionsItemSelected(item);
     }
 
+    /**
+     * Clears the result buffer to avoid memory leaks as soon as the activity is no longer
+     * visible by the user.
+     */
     @Override
-    protected void onResume() {
-        super.onResume();
-        if (mGoogleApiClient == null) {
-            // Create the API client and bind it to an instance variable.
-            // We use this instance as the callback for connection and connection
-            // failures.
-            // Since no account name is passed, the user is prompted to choose.
-            mGoogleApiClient = new GoogleApiClient.Builder(this)
-                    .addApi(Drive.API)
-                    .addScope(Drive.SCOPE_FILE)
-                    .addConnectionCallbacks(this)
-                    .addOnConnectionFailedListener(this)
-                    .build();
-        }
-        // Connect the client. Once connected, the camera is launched.
-        mGoogleApiClient.connect();
+    protected void onStop() {
+        super.onStop();
+        mResultsAdapter.clear();
     }
 
     @Override
-    protected void onPause() {
-        if (mGoogleApiClient != null) {
-            mGoogleApiClient.disconnect();
-        }
-        super.onPause();
-    }
+    public void onConnected(Bundle connectionHint) {
+        super.onConnected(connectionHint);
 
-    @Override
-    public void onConnected(Bundle bundle) {
-        Log.i(TAG, "API client connected.");
+        //
+        Query query = new Query.Builder()
+                .addFilter(Filters.contains(SearchableField.TITLE, "metadata"))
+                .build();
+        Drive.DriveApi.query(getGoogleApiClient(), query)
+                .setResultCallback(metadataCallback);
 
-        // Download cipherbox/rsa-key-pairs.tgz to local application home ".cipherbox" if does not exist
-        File apphome = new File(this.getApplicationContext().getFilesDir(), ".cipherbox");
-        File tgzfile = new File(apphome, "rsa-key-pairs.tgz");
-        if (tgzfile.exists()) {
-            Log.i(TAG, "File .cipherbox/rsa-key-pairs.tgz exists.");
-        }
-        else {
-            Log.i(TAG, "File .cipherbox/rsa-key-pairs.tgz does not exist.");
-
-            Log.i(TAG, "Trying to download file rsa-key-pairs.tgz from Google Drive.");
-            Query query = new Query.Builder()
-                    .addFilter(Filters.contains(SearchableField.TITLE, "rsa-key-pairs.tgz"))
-                    .build();
-            Drive.DriveApi.query(mGoogleApiClient, query)
-                    .setResultCallback(metadataCallback);
-
-            // TODO download file rsa-key-pairs.tgz from Google Drive
-            // TODO untar file rsa-key-pairs.tgz
-        }
-
-        // Download cipherbox/metadata to local application home ".cipherbox" if does not exist
-        File metadatafile = new File(apphome, "metadata");
-        if (metadatafile.exists()) {
-            Log.i(TAG, "File .cipherbox/metadata exists.");
-        }
-        else {
-            Log.i(TAG, "File .cipherbox/metadata does not exist.");
-
-            Log.i(TAG, "Trying to download file metadata from Google Drive.");
-            Query query = new Query.Builder()
-                    .addFilter(Filters.contains(SearchableField.TITLE, "metadata"))
-                    .build();
-            Drive.DriveApi.query(mGoogleApiClient, query)
-                    .setResultCallback(metadataCallback);
-
-            // TODO download file metadata from Google Drive
-        }
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-        Log.i(TAG, "GoogleApiClient connection suspended");
-    }
-
-    @Override
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-        // Called whenever the API client fails to connect.
-        Log.i(TAG, "GoogleApiClient connection failed: " + connectionResult.toString());
+        /*
+        Drive.DriveApi.fetchDriveId(getGoogleApiClient(), EXISTING_FILE_ID)
+                .setResultCallback(idCallback);*/
     }
 }
