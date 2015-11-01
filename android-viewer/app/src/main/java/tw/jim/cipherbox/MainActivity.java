@@ -8,6 +8,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -15,7 +16,6 @@ import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.drive.Drive;
 import com.google.android.gms.drive.DriveApi;
 import com.google.android.gms.drive.DriveApi.DriveContentsResult;
-import com.google.android.gms.drive.DriveApi.DriveIdResult;
 import com.google.android.gms.drive.DriveContents;
 import com.google.android.gms.drive.DriveFile;
 import com.google.android.gms.drive.DriveId;
@@ -26,7 +26,14 @@ import com.google.android.gms.drive.sample.demo.ApiClientAsyncTask;
 import com.google.android.gms.drive.sample.demo.BaseDemoActivity;
 import com.google.android.gms.drive.sample.demo.ResultsAdapter;
 
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -41,7 +48,7 @@ public class MainActivity extends BaseDemoActivity {
     private ListView mResultsListView;
     private ResultsAdapter mResultsAdapter;
 
-    final private ResultCallback<DriveApi.MetadataBufferResult> metadataCallback =
+    final private ResultCallback<DriveApi.MetadataBufferResult> ciphertext_metadataCallback =
             new ResultCallback<DriveApi.MetadataBufferResult>() {
                 @Override
                 public void onResult(DriveApi.MetadataBufferResult result) {
@@ -53,22 +60,155 @@ public class MainActivity extends BaseDemoActivity {
                     mResultsAdapter.append(result.getMetadataBuffer());
 
                     //
-                    new RetrieveDriveFileContentsAsyncTask(MainActivity.this).execute(result.getMetadataBuffer().get(0).getDriveId());
+                    new ciphertext_RetrieveDriveFileContentsAsyncTask(MainActivity.this).execute(result.getMetadataBuffer().get(0).getDriveId());
 
                 }
             };
 
-    final private ResultCallback<DriveIdResult> idCallback = new ResultCallback<DriveIdResult>() {
-        @Override
-        public void onResult(DriveIdResult result) {
-            new RetrieveDriveFileContentsAsyncTask(MainActivity.this).execute(result.getDriveId());
-        }
-    };
-
-    final private class RetrieveDriveFileContentsAsyncTask
+    final private class ciphertext_RetrieveDriveFileContentsAsyncTask
             extends ApiClientAsyncTask<DriveId, Boolean, String> {
 
-        public RetrieveDriveFileContentsAsyncTask(Context context) {
+        public ciphertext_RetrieveDriveFileContentsAsyncTask(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected String doInBackgroundConnected(DriveId... params) {
+            String contents = null;
+            DriveFile file = params[0].asDriveFile();
+            DriveContentsResult driveContentsResult =
+                    file.open(getGoogleApiClient(), DriveFile.MODE_READ_ONLY, null).await();
+            if (!driveContentsResult.getStatus().isSuccess()) {
+                return null;
+            }
+            DriveContents driveContents = driveContentsResult.getDriveContents();
+
+            // TODO Decrypting ciphertext from the stream
+            Log.i(TAG, "Decrypting ciphertext from the stream");
+            driveContents.getInputStream();
+
+            EditText keyname = (EditText) findViewById(R.id.editText2);
+            EditText keyphrase = (EditText) findViewById(R.id.editText3);
+
+            // Error: Only the original thread that created a view hierarchy can touch its views.
+            Log.i(TAG, "Displaying plaintext from the stream");
+            TextView plaintext = (TextView) findViewById(R.id.textView4);
+            // plaintext.setText("This is hello.");
+
+            driveContents.discard(getGoogleApiClient());
+            return contents;
+        }
+    }
+
+    final private ResultCallback<DriveApi.MetadataBufferResult> rsakeypairstgz_metadataCallback =
+            new ResultCallback<DriveApi.MetadataBufferResult>() {
+                @Override
+                public void onResult(DriveApi.MetadataBufferResult result) {
+                    if (!result.getStatus().isSuccess()) {
+                        showMessage("Problem while retrieving results");
+                        return;
+                    }
+                    mResultsAdapter.clear();
+                    mResultsAdapter.append(result.getMetadataBuffer());
+
+                    //
+                    new rsakeypairstgz_RetrieveDriveFileContentsAsyncTask(MainActivity.this).execute(result.getMetadataBuffer().get(0).getDriveId());
+
+                }
+            };
+
+    final private class rsakeypairstgz_RetrieveDriveFileContentsAsyncTask
+            extends ApiClientAsyncTask<DriveId, Boolean, String> {
+
+        public rsakeypairstgz_RetrieveDriveFileContentsAsyncTask(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected String doInBackgroundConnected(DriveId... params) {
+            String contents = null;
+            DriveFile file = params[0].asDriveFile();
+            DriveContentsResult driveContentsResult =
+                    file.open(getGoogleApiClient(), DriveFile.MODE_READ_ONLY, null).await();
+            if (!driveContentsResult.getStatus().isSuccess()) {
+                return null;
+            }
+            DriveContents driveContents = driveContentsResult.getDriveContents();
+
+            //
+            try {
+                Log.i(TAG, "Saving rsa-key-pairs.tgz from the stream");
+                FileOutputStream fos = openFileOutput("rsa-key-pairs.tgz", Context.MODE_PRIVATE);
+                org.apache.commons.io.IOUtils.copy(driveContents.getInputStream(),fos);
+                fos.close();
+
+                Log.i(TAG, "Untaring rsa-key-pairs.tgz");
+                final int BUFFER = 2048;
+                /** create a TarArchiveInputStream object. **/
+                FileInputStream fin = openFileInput("rsa-key-pairs.tgz");
+                BufferedInputStream in = new BufferedInputStream(fin);
+                GzipCompressorInputStream gzIn = new GzipCompressorInputStream(in);
+                TarArchiveInputStream tarIn = new TarArchiveInputStream(gzIn);
+                TarArchiveEntry entry = null;
+                /** Read the tar entries using the getNextEntry method **/
+                while ((entry = (TarArchiveEntry) tarIn.getNextEntry()) != null) {
+                    Log.i(TAG, "Extracting: " + entry.getName());
+                    /** If the entry is a directory, create the directory. **/
+                    if (entry.isDirectory()) {
+                        File f = new File(getFilesDir(), entry.getName());
+                        f.mkdirs();
+                        Log.i(TAG, "Created dir absolute path: " + f.getAbsolutePath());
+                    }
+                    /**
+                     * If the entry is a file,write the decompressed file to the disk
+                     * and close destination stream.
+                     **/
+                    else {
+                        int count;
+                        byte data[] = new byte[BUFFER];
+                        fos = new FileOutputStream(getFilesDir().getAbsolutePath() + "/" + entry.getName());
+                        BufferedOutputStream dest = new BufferedOutputStream(fos,BUFFER);
+                        while ((count = tarIn.read(data, 0, BUFFER)) != -1) {
+                            dest.write(data, 0, count);
+                        }
+                        dest.close();
+                        Log.i(TAG, "Saved file absolute path: " + getFilesDir().getAbsolutePath() + "/" + entry.getName());
+                    }
+                }
+                /** Close the input stream **/
+                tarIn.close();
+                Log.i(TAG, "Untar completed successfully!!");
+
+            } catch (IOException e) {
+                Log.e(TAG, "IOException while saving rsa-key-pairs.tgz from the stream", e);
+            }
+
+            driveContents.discard(getGoogleApiClient());
+            return contents;
+        }
+    }
+
+    final private ResultCallback<DriveApi.MetadataBufferResult> metadata_metadataCallback =
+            new ResultCallback<DriveApi.MetadataBufferResult>() {
+                @Override
+                public void onResult(DriveApi.MetadataBufferResult result) {
+                    if (!result.getStatus().isSuccess()) {
+                        showMessage("Problem while retrieving results");
+                        return;
+                    }
+                    mResultsAdapter.clear();
+                    mResultsAdapter.append(result.getMetadataBuffer());
+
+                    //
+                    new metadata_RetrieveDriveFileContentsAsyncTask(MainActivity.this).execute(result.getMetadataBuffer().get(0).getDriveId());
+
+                }
+            };
+
+    final private class metadata_RetrieveDriveFileContentsAsyncTask
+            extends ApiClientAsyncTask<DriveId, Boolean, String> {
+
+        public metadata_RetrieveDriveFileContentsAsyncTask(Context context) {
             super(context);
         }
 
@@ -102,32 +242,8 @@ public class MainActivity extends BaseDemoActivity {
                 Log.e(TAG, "ClassNotFoundException while deserializing metadata from the stream", e);
             }
 
-            /*
-            BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(driveContents.getInputStream()));
-            StringBuilder builder = new StringBuilder();
-            String line;
-            try {
-                while ((line = reader.readLine()) != null) {
-                    builder.append(line);
-                }
-                contents = builder.toString();
-            } catch (IOException e) {
-                Log.e(TAG, "IOException while reading from the stream", e);
-            }*/
-
             driveContents.discard(getGoogleApiClient());
             return contents;
-        }
-
-        @Override
-        protected void onPostExecute(String result) {
-            super.onPostExecute(result);
-            if (result == null) {
-                showMessage("Error while reading from the file");
-                return;
-            }
-            showMessage("File contents: " + result);
         }
     }
 
@@ -145,20 +261,6 @@ public class MainActivity extends BaseDemoActivity {
 
         // Using internal storage as local application home
 
-        //
-        File metadata_file = new File(this.getFilesDir(), "metadata");
-        if ( ! metadata_file.exists() ) {
-            // Download metadata file from Google Drive
-            Log.i(TAG, "Downloading metadata file from Google Drive");
-        }
-
-        //
-        File rsa_key_pairs_tgz_file = new File(this.getFilesDir(), "rsa-key-pairs.tgz");
-        if ( ! rsa_key_pairs_tgz_file.exists() ) {
-            // Download rsa-key-pairs.tgz file from Google Drive
-            Log.i(TAG, "Downloading rsa-key-pairs.tgz file from Google Drive");
-        }
-
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -168,11 +270,13 @@ public class MainActivity extends BaseDemoActivity {
                         .setAction("Action", null).show();*/
 
                 // Decrypt cipher text and then display plain text
-                // TODO get InputStream of the specified file from Google Drive
-                // TODO decrypt the content of InputStream using the specified RSA key
-                TextView plaintext = (TextView) findViewById(R.id.textView4);
-                plaintext.setText("This is hello.");
-
+                EditText filename = (EditText) findViewById(R.id.editText);
+                Log.i(TAG, "Reading " + filename.getText().toString() + " file from Google Drive");
+                Query metadata_query = new Query.Builder()
+                    .addFilter(Filters.contains(SearchableField.TITLE, filename.getText().toString()))
+                    .build();
+                Drive.DriveApi.query(getGoogleApiClient(), metadata_query)
+                    .setResultCallback(ciphertext_metadataCallback);
             }
         });
     }
@@ -214,14 +318,30 @@ public class MainActivity extends BaseDemoActivity {
         super.onConnected(connectionHint);
 
         //
-        Query query = new Query.Builder()
-                .addFilter(Filters.contains(SearchableField.TITLE, "metadata"))
-                .build();
-        Drive.DriveApi.query(getGoogleApiClient(), query)
-                .setResultCallback(metadataCallback);
+        File metadata_file = new File(this.getFilesDir(), "metadata");
+        if ( ! metadata_file.exists() ) {
+            // Download metadata file from Google Drive
+            Log.i(TAG, "Downloading metadata file from Google Drive");
 
-        /*
-        Drive.DriveApi.fetchDriveId(getGoogleApiClient(), EXISTING_FILE_ID)
-                .setResultCallback(idCallback);*/
+            Query metadata_query = new Query.Builder()
+                    .addFilter(Filters.contains(SearchableField.TITLE, "metadata"))
+                    .build();
+            Drive.DriveApi.query(getGoogleApiClient(), metadata_query)
+                    .setResultCallback(metadata_metadataCallback);
+        }
+
+        //
+        File rsa_key_pairs_tgz_file = new File(this.getFilesDir(), "rsa-key-pairs.tgz");
+        if ( ! rsa_key_pairs_tgz_file.exists() ) {
+            // Download rsa-key-pairs.tgz file from Google Drive
+            Log.i(TAG, "Downloading rsa-key-pairs.tgz file from Google Drive");
+
+            Query rsakeypairstgz_query = new Query.Builder()
+                    .addFilter(Filters.contains(SearchableField.TITLE, "rsa-key-pairs.tgz"))
+                    .build();
+            Drive.DriveApi.query(getGoogleApiClient(), rsakeypairstgz_query)
+                    .setResultCallback(rsakeypairstgz_metadataCallback);
+        }
+
     }
 }
